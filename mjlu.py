@@ -1,11 +1,7 @@
-import urllib
-import urllib.request
-import http.cookiejar
-import hashlib
 import re
 import json
 import socket
-
+from AES256Crypter import AES256Crypter
 
 class mjlu(object):
     def __init__(self, username, password):
@@ -18,13 +14,15 @@ class mjlu(object):
         self.s.connect(self.src)
         # headers
         self.headers = 'Host: 202.98.18.57:18080\r\n' \
-                       'User-Agent: 数字吉大 2.41 (iPhone; iOS 10.2; zh_CN)\r\n' \
-                       'Connection: keep-alive\r\n' \
                        'Accept-Encoding: gzip\r\n' \
-                       '\r\n'
-        # 登陆cookies用的sessionid
-        self.sessionid = self.get_token()
+                       'User-Agent: 数字吉大 2.41 (iPhone; iOS 10.2; zh_CN)\r\n' \
+                       'Connection: keep-alive\r\n'
 
+        # 登陆cookies用的sessionid，和加密用的name
+        self.sessionid, self.name = self.get_token()
+        # AES/ECB/PKCS7Padding
+        self.key = bytes.fromhex(self.name)
+        self.crypter = AES256Crypter(self.key)
 
     # 上下文管理器有关
     def __enter__(self):
@@ -34,8 +32,7 @@ class mjlu(object):
         self.s.close()
 
     # sar发送接收数据然后返回结果
-    def sar(self, data):
-        data += self.headers
+    def communicate(self, data):
         self.s.send(data.encode())
         result = []
         while True:
@@ -48,12 +45,32 @@ class mjlu(object):
 
     # 获取token
     def get_token(self):
-        result = self.sar('GET /webservice/m/api/token/v2 HTTP/1.1\r\n')
-        # 返回数据中只有部分是json格式
-        j_result = json.loads(result[-233:-6])
-        sessionid = j_result['resultValue']['sessionid']
-        return sessionid
+        data = 'GET /webservice/m/api/token/v2 HTTP/1.1\r\n' + self.headers + '\r\n'
+        result = self.communicate(data)
+        # re匹配json数据
+        pattern = re.compile(r'e2\r\n({.*})\r\n0', re.DOTALL)
+        match = pattern.search(result)
+        json_data = match.group(1)
 
-if  __name__ == '__main__':
-    with mjlu(' ', 'password0183') as test:
-        print(test.sessionid)
+        j_result = json.loads(json_data)
+        sessionid = j_result['resultValue']['sessionid']
+        name = j_result['resultValue']['name']
+        return sessionid, name
+
+    def get_score(self):
+        encrypt = self.crypter.encrypt
+        get_data = { 'username': encrypt(self.username),
+                     'password': encrypt(self.password),
+                     'user_ip': '192.168.1.110',
+                     'login_type': 'ios',
+                     'from_szhxy': '1',
+                    }
+        data = 'GET http://202.98.18.57:18080/webservice/m/api/login/v2?apptype=' + \
+               '&username=' + encrypt(self.username) + \
+               '&password=' + encrypt(self.password) + \
+               '&user_ip=192.168.0.119&logintype=ios&from_szhxy=1&token= HTTP/1.1\r\n'
+
+
+if __name__ == '__main__':
+    with mjlu('', '') as test:
+        print(test.sessionid, test.name)
