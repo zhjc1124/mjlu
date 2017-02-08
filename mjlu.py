@@ -3,26 +3,33 @@ import json
 import socket
 from AES256Crypter import AES256Crypter
 
+
 class mjlu(object):
     def __init__(self, username, password):
         self.username = username
         self.password = password
+
         # TCP协议
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # 目标ip为202.98.18.57，端口为18080
         self.src = ('202.98.18.57', 18080)
         self.s.connect(self.src)
+
         # headers
         self.headers = 'Host: 202.98.18.57:18080\r\n' \
+                       'Connection: keep-alive\r\n' \
                        'Accept-Encoding: gzip\r\n' \
-                       'User-Agent: 数字吉大 2.41 (iPhone; iOS 10.2; zh_CN)\r\n' \
-                       'Connection: keep-alive\r\n'
+                       'User-Agent: 数字吉大 2.41 (iPhone; iOS 10.2; zh_CN)\r\n'
 
-        # 登陆cookies用的sessionid，和加密用的name
+        # 获取登陆cookies用的sessionid，和加密用的name
         self.sessionid, self.name = self.get_token()
+
         # AES/ECB/PKCS7Padding
         self.key = bytes.fromhex(self.name)
         self.crypter = AES256Crypter(self.key)
+
+        # 登陆
+        self.login()
 
     # 上下文管理器有关
     def __enter__(self):
@@ -57,20 +64,29 @@ class mjlu(object):
         name = j_result['resultValue']['name']
         return sessionid, name
 
-    def get_score(self):
-        encrypt = self.crypter.encrypt
-        get_data = { 'username': encrypt(self.username),
-                     'password': encrypt(self.password),
-                     'user_ip': '192.168.1.110',
-                     'login_type': 'ios',
-                     'from_szhxy': '1',
-                    }
-        data = 'GET http://202.98.18.57:18080/webservice/m/api/login/v2?apptype=' + \
-               '&username=' + encrypt(self.username) + \
-               '&password=' + encrypt(self.password) + \
-               '&user_ip=192.168.0.119&logintype=ios&from_szhxy=1&token= HTTP/1.1\r\n'
-
+    def login(self):
+        # 在headers中重复Connection反爬虫?
+        data = 'GET /webservice/m/api/login/v2?apptype=' + \
+               '&username=' + self.crypter.encrypt(self.username) + \
+               '&password=' + self.crypter.encrypt(self.password) + \
+               '&user_ip=192.168.0.119&login_type=ios&from_szhxy=1&token= HTTP/1.1\r\n' + \
+               self.headers + \
+               'Connection: keep-alive\r\nCookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
+        self.communicate(data)
+        data = 'POST /webservice/m/api/proxy HTTP/1.1\r\n' \
+               'Host: 202.98.18.57:18080\r\n' \
+               'Connection: keep-alive\r\n' \
+               'Accept-Encoding: gzip, deflate\r\n' \
+               'Content-Type: application/x-www-form-urlencoded; charset=utf-8\r\n' \
+               'Cookie: JSESSIONID=' + self.sessionid + '\r\n' + \
+               'Content-Length: 104\r\n' \
+               'Accept-Language: zh-cn\r\n' \
+               'Accept: */*\r\nConnection: keep-alive\r\n' \
+               'User-Agent: mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0\r\n\r\n' \
+               'link=http%3A%2F%2Fip.jlu.edu.cn%2Fpay%2Finterface_mobile.php%3Fmenu%3Dget_mail_info%26mail%3D' + self.username
+        result = self.communicate(data)
+        print(result)
 
 if __name__ == '__main__':
-    with mjlu('', '') as test:
-        print(test.sessionid, test.name)
+    with mjlu('zhangjc2015', 'zhang1124171X') as test:
+        pass

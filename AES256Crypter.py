@@ -13,7 +13,7 @@ class AES256Crypter(object):
         return data + chr(padding) * padding
 
     def pkcs7unpadding(self, data):
-        unpadding = ord(data[15])
+        unpadding = data[15]
         return data[0:16 - unpadding]
 
     def encrypt(self, data):
@@ -23,12 +23,5 @@ class AES256Crypter(object):
 
     def decrypt(self, data):
         encrypted = bytes.fromhex(data)
-        unencrypted = self.pkcs7unpadding(encrypted)
-        return unencrypted.decode()
-
-if __name__ == '__main__':
-    key = input("请输入key：")
-    message = input("请输入明文：")
-    obj = AES256Crypter(key)
-    print("密文为：", obj.encrypt(message))
-
+        unencrypted = self.cipher.decrypt(encrypted)
+        return self.pkcs7unpadding(unencrypted).decode()
