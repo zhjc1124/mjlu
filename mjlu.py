@@ -1,6 +1,7 @@
 import re
 import json
 import socket
+import time
 from AES256Crypter import AES256Crypter
 
 
@@ -14,6 +15,7 @@ class mjlu(object):
         # 目标ip为202.98.18.57，端口为18080
         self.src = ('202.98.18.57', 18080)
         self.s.connect(self.src)
+        self.s.setblocking(0)  # 非阻塞模式
 
         # headers
         self.headers = 'Host: 202.98.18.57:18080\r\n' \
@@ -23,7 +25,6 @@ class mjlu(object):
 
         # 获取登陆cookies用的sessionid，和加密用的name
         self.sessionid, self.name = self.get_token()
-
         # AES/ECB/PKCS7Padding
         self.key = bytes.fromhex(self.name)
         self.crypter = AES256Crypter(self.key)
@@ -38,40 +39,43 @@ class mjlu(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.s.close()
 
-    # sar发送接收数据然后返回结果
+    # 发送data并接受
     def communicate(self, data):
         self.s.send(data.encode())
+        time.sleep(0.1)
         result = []
         while True:
-            rec = self.s.recv(1024)
-            if rec:
-                result.append(rec)
-            else:
+            try:
+                buf = self.s.recv(1024)
+            except BlockingIOError:
                 break
+            time.sleep(0.1)
+            result.append(buf)
         return b''.join(result).decode()
 
     # 获取token
     def get_token(self):
         data = 'GET /webservice/m/api/token/v2 HTTP/1.1\r\n' + self.headers + '\r\n'
         result = self.communicate(data)
+
         # re匹配json数据
         pattern = re.compile(r'e2\r\n({.*})\r\n0', re.DOTALL)
         match = pattern.search(result)
         json_data = match.group(1)
 
+        # json处理获取sessionid和name
         j_result = json.loads(json_data)
         sessionid = j_result['resultValue']['sessionid']
         name = j_result['resultValue']['name']
         return sessionid, name
 
     def login(self):
-        # 在headers中重复Connection反爬虫?
         data = 'GET /webservice/m/api/login/v2?apptype=' + \
                '&username=' + self.crypter.encrypt(self.username) + \
                '&password=' + self.crypter.encrypt(self.password) + \
                '&user_ip=192.168.0.119&login_type=ios&from_szhxy=1&token= HTTP/1.1\r\n' + \
                self.headers + \
-               'Connection: keep-alive\r\nCookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
+               'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
         self.communicate(data)
         data = 'POST /webservice/m/api/proxy HTTP/1.1\r\n' \
                'Host: 202.98.18.57:18080\r\n' \
@@ -88,5 +92,7 @@ class mjlu(object):
         print(result)
 
 if __name__ == '__main__':
-    with mjlu('zhangjc2015', 'zhang1124171X') as test:
+    with open('username', 'r') as f:
+        username, password = f.read().split(' ')
+    with mjlu(username, password) as test:
         pass
