@@ -56,7 +56,6 @@ class mjlu(object):
         j_result = [json.loads(json_data) for json_data in match]
         return j_result[0]
 
-
     # 获取token
     def __get_token(self):
         data = 'GET /webservice/m/api/token/v2 HTTP/1.1\r\n' + self.headers + '\r\n'
