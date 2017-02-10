@@ -26,15 +26,6 @@ class mjlu(object):
         self.stu_info = {}
         self.scores = []
 
-    # 上下文管理器相关
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.s.close()
-
-    def close(self):
-        self.s.close()
 
     # 发送data并接受处理数据
     def __communicate(self, data):
@@ -143,10 +134,19 @@ class mjlu(object):
                'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
         result = self.__communicate(data)
         courses = result["resultValue"]
-        return courses
         if show == 1:
             pass
+        return courses
 
+    # 上下文管理器相关
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.s.close()
+
+    def close(self):
+        self.s.close()
 
 class UserError(Exception):
     def __init__(self, value):
