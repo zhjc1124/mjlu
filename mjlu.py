@@ -39,7 +39,7 @@ class mjlu(object):
     # 发送data并接受处理数据
     def __communicate(self, data):
         self.s.send(data.encode())
-        time.sleep(0.5)
+        time.sleep(1)
         result = []
         while True:
             try:
@@ -49,9 +49,8 @@ class mjlu(object):
             time.sleep(0.1)
             result.append(buf)
         result = b''.join(result).decode()
-
         # 匹配字符串中json格式处理后返回
-        pattern = re.compile(r'\r\n\S{2,3}\r\n({.*?})\r\n0', re.DOTALL)
+        pattern = re.compile(r'\r\n\S{2,4}\r\n({.*?})\r\n0', re.DOTALL)
         match = pattern.findall(result)
         j_result = [json.loads(json_data) for json_data in match]
         return j_result[0]
@@ -85,6 +84,7 @@ class mjlu(object):
         elif feedback == "用户名或密码错误。":
             raise UserError(feedback)
 
+    def get_info(self, show=0):
         data = 'POST /webservice/m/api/proxy HTTP/1.1\r\n' \
                'Host: 202.98.18.57:18080\r\n' \
                'Connection: keep-alive\r\n' \
@@ -99,27 +99,24 @@ class mjlu(object):
                + self.username
         result = self.__communicate(data)
         stu_info = result['resultValue']['content']
-        self.stu_info = json.loads(stu_info)
+        stu_info = json.loads(stu_info)
+        if show == 1:
+            print('邮箱账号:', self.stu_info['mail'])
+            print('姓名:', self.stu_info['name'])
+            print('身份证号:', self.stu_info['zhengjianhaoma'])
+            print('学院:', self.stu_info['class'])
+            ip = self.stu_info['ip'][0]
+            print('ip地址:', ip)
+            ip_info = self.stu_info['ip_info'][ip]
+            print('校园卡号:', ip_info['id_name'])
+            print('校区:', ip_info['campus'])
+            print('所在区域:', ip_info['net_area'])
+            print('宿舍号:', ip_info['home_addr'])
+            print('电话号:', ip_info['phone'])
+            print('mac地址:', ip_info['mac'])
+        return stu_info
 
-    def show_info(self):
-        if not self.stu_info:
-            print('请先登陆')
-            return
-        print('邮箱账号:', self.stu_info['mail'])
-        print('姓名:', self.stu_info['name'])
-        print('身份证号:', self.stu_info['zhengjianhaoma'])
-        print('学院:', self.stu_info['class'])
-        ip = self.stu_info['ip'][0]
-        print('ip地址:', ip)
-        ip_info = self.stu_info['ip_info'][ip]
-        print('校园卡号:', ip_info['id_name'])
-        print('校区:', ip_info['campus'])
-        print('所在区域:', ip_info['net_area'])
-        print('宿舍号:', ip_info['home_addr'])
-        print('电话号:', ip_info['phone'])
-        print('mac地址:', ip_info['mac'])
-
-    def get_score(self, term, flag = 1):
+    def get_score(self, term, show=0):
         # 计算公式2*(入学年份-1951)+学期数
         # 131对应2016-2017第一个学期，以2015级学生为例，131 = 2*(2015-1951)+3
         termId = str(2*(int('20'+username[-2:])-1951)+term)
@@ -131,13 +128,24 @@ class mjlu(object):
         result = self.__communicate(data)
 
         scores = result["resultValue"]
-        if flag == 1:
+        if show == 1:
             if scores:
                 for score in scores:
                     print(score["scoreName"], score["scoreProperty"], score["score"], score["scorePoint"], score["scoreFalg"], score["scoreCredit"])
             else:
                 print('无此学期成绩')
         return scores
+
+    def get_course(self, show=0):
+        data = 'GET /webservice/m/api/getCourseInfo?' \
+               'email=' + self.username + \
+               ' HTTP/1.1\r\n' + self.headers + \
+               'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
+        result = self.__communicate(data)
+        courses = result["resultValue"]
+        return courses
+        if show == 1:
+            pass
 
 
 class UserError(Exception):
@@ -152,5 +160,6 @@ if __name__ == '__main__':
     with open('username', 'r') as f:
         username, password = f.read().split(' ')
     with mjlu(username, password) as test:
-        test.login()
-        test.get_score(3, flag=1)
+        # test.login()
+        test.get_score(2, show=1)
+        test.get_course(show=1)
