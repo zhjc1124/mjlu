@@ -23,9 +23,7 @@ class mjlu(object):
                        'Accept-Encoding: gzip\r\n' \
                        'User-Agent: 数字吉大 2.41 (iPhone; iOS 10.2; zh_CN)\r\n'
         self.sessionid = ''
-        self.stu_info = {}
-        self.scores = []
-
+        self.logged = 0
 
     # 发送data并接受处理数据
     def __communicate(self, data):
@@ -74,8 +72,10 @@ class mjlu(object):
             raise UserError("此邮箱账号" + self.username + "不存在")
         elif feedback == "用户名或密码错误。":
             raise UserError(feedback)
+        self.logged = 1
 
     def get_info(self, show=0):
+        self._check_login()
         data = 'POST /webservice/m/api/proxy HTTP/1.1\r\n' \
                'Host: 202.98.18.57:18080\r\n' \
                'Connection: keep-alive\r\n' \
@@ -92,13 +92,13 @@ class mjlu(object):
         stu_info = result['resultValue']['content']
         stu_info = json.loads(stu_info)
         if show == 1:
-            print('邮箱账号:', self.stu_info['mail'])
-            print('姓名:', self.stu_info['name'])
-            print('身份证号:', self.stu_info['zhengjianhaoma'])
-            print('学院:', self.stu_info['class'])
-            ip = self.stu_info['ip'][0]
+            print('邮箱账号:', stu_info['mail'])
+            print('姓名:', stu_info['name'])
+            print('身份证号:', stu_info['zhengjianhaoma'])
+            print('学院:', stu_info['class'])
+            ip = stu_info['ip'][0]
             print('ip地址:', ip)
-            ip_info = self.stu_info['ip_info'][ip]
+            ip_info = stu_info['ip_info'][ip]
             print('校园卡号:', ip_info['id_name'])
             print('校区:', ip_info['campus'])
             print('所在区域:', ip_info['net_area'])
@@ -108,35 +108,47 @@ class mjlu(object):
         return stu_info
 
     def get_score(self, term, show=0):
+        self._check_login()
         # 计算公式2*(入学年份-1951)+学期数
         # 131对应2016-2017第一个学期，以2015级学生为例，131 = 2*(2015-1951)+3
-        termId = str(2*(int('20'+username[-2:])-1951)+term)
+        termid = str(2*(int('20'+self.username[-2:])-1951)+term)
         data = 'GET /webservice/m/api/getScoreInfo?' \
                'email=' + self.username + \
-               '&termId=' + termId + \
+               '&termId=' + termid + \
                ' HTTP/1.1\r\n' + self.headers + \
                'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
         result = self.__communicate(data)
-
         scores = result["resultValue"]
+
+        # 打印相关
         if show == 1:
             if scores:
-                for score in scores:
-                    print(score["scoreName"], score["scoreProperty"], score["score"], score["scorePoint"], score["scoreFalg"], score["scoreCredit"])
+                from tabulate import tabulate
+                table = tabulate([[score["scoreName"], score["scoreProperty"],
+                                   score["score"], score["scorePoint"],
+                                   score["scoreFalg"], score["scoreCredit"]
+                                   ] for score in scores
+                                  ], headers=["学科", "类型", "分数", "绩点", "重修", "学分"]
+                                   , stralign='center'
+                                 )
+                print(table)
             else:
                 print('无此学期成绩')
         return scores
 
-    def get_course(self, show=0):
+    def get_course(self):
+        self._check_login()
         data = 'GET /webservice/m/api/getCourseInfo?' \
                'email=' + self.username + \
                ' HTTP/1.1\r\n' + self.headers + \
                'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
         result = self.__communicate(data)
         courses = result["resultValue"]
-        if show == 1:
-            pass
         return courses
+
+    def _check_login(self):
+        if self.logged == 0:
+            raise UserError('未登录')
 
     # 上下文管理器相关
     def __enter__(self):
@@ -148,6 +160,7 @@ class mjlu(object):
     def close(self):
         self.s.close()
 
+
 class UserError(Exception):
     def __init__(self, value):
         self.value = value
@@ -157,9 +170,12 @@ class UserError(Exception):
 
 
 if __name__ == '__main__':
-    with open('username', 'r') as f:
-        username, password = f.read().split(' ')
-    with mjlu(username, password) as test:
-        # test.login()
-        test.get_score(2, show=1)
-        test.get_course(show=1)
+    sample_user = input("请输入用户名：")
+    sample_pwd = input("请输入密码：")
+    with mjlu(sample_user, sample_pwd) as test:
+        test.login()
+        infos = test.get_info(show=1)
+        scores = test.get_score(1, show=1)
+        courses = test.get_course()
+        for course in courses:
+            print(course)
