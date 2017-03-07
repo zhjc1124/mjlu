@@ -3,27 +3,23 @@ import json
 import socket
 import time
 from AES256Crypter import AES256Crypter
+import urllib.request
+import urllib
 
 
 class mjlu(object):
     def __init__(self, username, password):
         self.username = username
         self.password = password
-
-        # TCP协议
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # 目标ip为202.98.18.57，端口为18080
-        self.src = ('202.98.18.57', 18080)
-        self.s.connect(self.src)
-        self.s.setblocking(0)  # 非阻塞模式
-
         # headers
-        self.headers = 'Host: 202.98.18.57:18080\r\n' \
-                       'Connection: keep-alive\r\n' \
-                       'Accept-Encoding: gzip\r\n' \
-                       'User-Agent: 数字吉大 2.41 (iPhone; iOS 10.2; zh_CN)\r\n'
+        self.headers = {
+            'Host': '202.98.18.57:18080',
+            'Connection': 'keep-alive',
+            'Accept-Encoding': 'gzip',
+            'User-Agent': 'mjlu 2.41 (PE-TL00; zh_CN)'
+                        }
         self.sessionid = ''
-        self.logged = 0
+        print(self.__get_token())
 
     # 发送data并接受处理数据
     def __communicate(self, data):
@@ -46,8 +42,10 @@ class mjlu(object):
 
     # 获取token
     def __get_token(self):
-        data = 'GET /webservice/m/api/token/v2 HTTP/1.1\r\n' + self.headers + '\r\n'
-        result = self.__communicate(data)
+        token_url = 'http://202.98.18.57:18080/webservice/m/api/token/v2'
+        request = urllib.request.Request(token_url, headers=self.headers)
+        result = urllib.request.urlopen(request)
+        print(result)
         sessionid = result['resultValue']['sessionid']
         name = result['resultValue']['name']
         return sessionid, name
@@ -72,9 +70,9 @@ class mjlu(object):
             raise UserError("此邮箱账号" + self.username + "不存在")
         elif feedback == "用户名或密码错误。":
             raise UserError(feedback)
-        self.logged = 1
+        self.logged = True
 
-    def get_info(self, show=0):
+    def get_info(self, show=False):
         self._check_login()
         data = 'POST /webservice/m/api/proxy HTTP/1.1\r\n' \
                'Host: 202.98.18.57:18080\r\n' \
@@ -91,7 +89,7 @@ class mjlu(object):
         result = self.__communicate(data)
         stu_info = result['resultValue']['content']
         stu_info = json.loads(stu_info)
-        if show == 1:
+        if show:
             print('邮箱账号:', stu_info['mail'])
             print('姓名:', stu_info['name'])
             print('身份证号:', stu_info['zhengjianhaoma'])
@@ -107,7 +105,7 @@ class mjlu(object):
             print('mac地址:', ip_info['mac'])
         return stu_info
 
-    def get_score(self, term, show=0):
+    def get_score(self, term, show=False):
         self._check_login()
         # 计算公式2*(入学年份-1951)+学期数
         # 131对应2016-2017第一个学期，以2015级学生为例，131 = 2*(2015-1951)+3
@@ -121,7 +119,7 @@ class mjlu(object):
         scores = result["resultValue"]
 
         # 打印相关
-        if show == 1:
+        if show:
             if scores:
                 from tabulate import tabulate
                 table = tabulate([[score["scoreName"], score["scoreProperty"],
@@ -147,7 +145,7 @@ class mjlu(object):
         return courses
 
     def _check_login(self):
-        if self.logged == 0:
+        if not self.logged:
             raise UserError('未登录')
 
     # 上下文管理器相关
@@ -173,9 +171,7 @@ if __name__ == '__main__':
     sample_user = input("请输入用户名：")
     sample_pwd = input("请输入密码：")
     with mjlu(sample_user, sample_pwd) as test:
-        test.login()
-        infos = test.get_info(show=1)
-        scores = test.get_score(1, show=1)
-        courses = test.get_course()
-        for course in courses:
-            print(course)
+        pass
+        # test.logged = True
+        # infos = test.get_info(show=True)
+        # scores = test.get_score(3, show=True)
