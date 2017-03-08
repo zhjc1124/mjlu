@@ -18,75 +18,61 @@ class mjlu(object):
             'Accept-Encoding': 'gzip',
             'User-Agent': 'mjlu 2.41 (PE-TL00; zh_CN)'
                         }
-        self.sessionid = ''
-        print(self.__get_token())
+        self.sessionid, self.name = self.__get_token()
+        self.__login()
 
-    # 发送data并接受处理数据
-    def __communicate(self, data):
-        self.s.send(data.encode())
-        time.sleep(1)
-        result = []
-        while True:
-            try:
-                buf = self.s.recv(1024)
-            except BlockingIOError:
-                break
-            time.sleep(0.1)
-            result.append(buf)
-        result = b''.join(result).decode()
-        # 匹配字符串中json格式处理后返回
-        pattern = re.compile(r'\r\n\S{2,4}\r\n({.*?})\r\n0', re.DOTALL)
-        match = pattern.findall(result)
-        j_result = [json.loads(json_data) for json_data in match]
-        return j_result[0]
+    # request并接受处理数据
+    def __communicate(self, url, postdata = None,**add_cookies):
+        request = urllib.request.Request(url, postdata, headers=self.headers)
+        for key, value in add_cookies.items():
+            request.add_header(key, value)
+
+        result = urllib.request.urlopen(request).read().decode()
+        return json.loads(result)
 
     # 获取token
     def __get_token(self):
         token_url = 'http://202.98.18.57:18080/webservice/m/api/token/v2'
-        request = urllib.request.Request(token_url, headers=self.headers)
-        result = urllib.request.urlopen(request)
-        print(result)
+        result = self.__communicate(token_url)
         sessionid = result['resultValue']['sessionid']
         name = result['resultValue']['name']
+        print(sessionid, name)
         return sessionid, name
 
-    def login(self):
+    def __login(self):
         # 获取登陆cookies用的sessionid，和加密用的name
-        self.sessionid, name = self.__get_token()
         # AES/ECB/PKCS7Padding加密
-        key = bytes.fromhex(name)
+        key = bytes.fromhex(self.name)
         crypter = AES256Crypter(key)
 
-        data = 'GET /webservice/m/api/login/v2?apptype=' + \
-               '&username=' + crypter.encrypt(self.username) + \
-               '&password=' + crypter.encrypt(self.password) + \
-               '&user_ip=192.168.0.119&login_type=ios&from_szhxy=1&token= HTTP/1.1\r\n' + \
-               self.headers + \
-               'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
-        result = self.__communicate(data)
+        login_url = 'http://202.98.18.57:18080/webservice/m/api/login/v2?apptype='+ \
+                    '&username=' + crypter.encrypt(self.username) + \
+                    '&password=' + crypter.encrypt(self.password) + \
+                    '&user_ip=192.168.0.119&login_type=ios&from_szhxy=1&token='
+        result = self.__communicate(login_url, Cookie='JSESSIONID=' + self.sessionid)
         feedback = result['resultStatus']['message']
 
         if feedback == "the account " + self.username + " does not exist.":
             raise UserError("此邮箱账号" + self.username + "不存在")
         elif feedback == "用户名或密码错误。":
             raise UserError(feedback)
-        self.logged = True
 
     def get_info(self, show=False):
-        self._check_login()
-        data = 'POST /webservice/m/api/proxy HTTP/1.1\r\n' \
-               'Host: 202.98.18.57:18080\r\n' \
-               'Connection: keep-alive\r\n' \
-               'Accept-Encoding: gzip, deflate\r\n' \
-               'Content-Type: application/x-www-form-urlencoded; charset=utf-8\r\n' \
-               'Cookie: JSESSIONID=' + self.sessionid + '\r\n' + \
-               'Content-Length: ' + str(93+len(self.username)) + '\r\n' \
-               'Accept-Language: zh-cn\r\n' \
-               'Accept: */*\r\nConnection: keep-alive\r\n' \
-               'User-Agent: mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0\r\n\r\n' \
-               'link=http%3A%2F%2Fip.jlu.edu.cn%2Fpay%2Finterface_mobile.php%3Fmenu%3Dget_mail_info%26mail%3D' \
-               + self.username
-        result = self.__communicate(data)
+        info_url = 'http://202.98.18.57:18080/webservice/m/api/proxy'
+        postdata = 'link=http%3A%2F%2Fip.jlu.edu.cn%2Fpay%2Finterface_mobile.php%3Fmenu%3Dget_mail_info%26mail%3D' \
+                        + self.username
+        postdata = postdata.encode()
+        add_headers = {
+               'Accept-Encoding': 'gzip, deflate',
+               'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+               'Cookie': 'JSESSIONID=' + self.sessionid,
+               'Content-Length': 'str(93+len(self.username))',
+               'Accept-Language': 'zh-cn',
+               'Accept': '*/*',
+               'User-Agent': 'mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0'
+            }
+
+        result = self.__communicate(info_url, postdata, **add_headers)
         stu_info = result['resultValue']['content']
         stu_info = json.loads(stu_info)
         if show:
@@ -106,57 +92,57 @@ class mjlu(object):
         return stu_info
 
     def get_score(self, term, show=False):
-        self._check_login()
         # 计算公式2*(入学年份-1951)+学期数
         # 131对应2016-2017第一个学期，以2015级学生为例，131 = 2*(2015-1951)+3
         termid = str(2*(int('20'+self.username[-2:])-1951)+term)
-        data = 'GET /webservice/m/api/getScoreInfo?' \
-               'email=' + self.username + \
-               '&termId=' + termid + \
-               ' HTTP/1.1\r\n' + self.headers + \
-               'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
-        result = self.__communicate(data)
+        score_url = 'http://202.98.18.57:18080/webservice/m/api/getScoreInfo?' \
+                    'email=' + self.username + \
+                    '&termId=' + termid
+        result = self.__communicate(score_url, Cookie='JSESSIONID=' + self.sessionid)
         scores = result["resultValue"]
 
         # 打印相关
         if show:
             if scores:
-                from tabulate import tabulate
-                table = tabulate([[score["scoreName"], score["scoreProperty"],
-                                   score["score"], score["scorePoint"],
-                                   score["scoreFalg"], score["scoreCredit"]
-                                   ] for score in scores
-                                  ], headers=["学科", "类型", "分数", "绩点", "重修", "学分"]
-                                   , stralign='center'
-                                 )
-                print(table)
+                def form(key, header):
+                    _ = [score[key] for score in scores]
+                    _.insert(0, header)
+                    return _
+                scoreNames = form("scoreName", u"学科")
+                length = [max(map(len, scoreNames))+3, 6, 2, 3, 1, 1]
+                values = [[score["scoreName"],
+                           score["score"]
+                           ] for score in scores
+                          ]
+                values.insert(0, [u"学科", u"分数"])
+
+                # 半角转全角函数，有利于对齐
+                def strB2Q(ustring):
+                    rstring = ""
+                    for uchar in ustring:
+                        inside_code = ord(uchar)
+                        if inside_code == 32:  # 半角空格直接转化
+                            inside_code = 12288
+                        elif 32 <= inside_code <= 126:  # 半角字符（除空格）根据关系转化
+                            inside_code += 65248
+                        rstring += chr(inside_code)
+                    return rstring
+                for value in values:
+                    for i in range(2):
+                        print(strB2Q(value[i].center(length[i], u'　')),
+                              strB2Q(value[i].center(length[i], u'　')),
+                              end='')
+                    print('')
             else:
                 print('无此学期成绩')
         return scores
 
     def get_course(self):
-        self._check_login()
-        data = 'GET /webservice/m/api/getCourseInfo?' \
-               'email=' + self.username + \
-               ' HTTP/1.1\r\n' + self.headers + \
-               'Cookie: JSESSIONID=' + self.sessionid + '\r\n\r\n'
-        result = self.__communicate(data)
+        course_url = 'http://202.98.18.57:18080//webservice/m/api/getCourseInfo?' \
+                     'email=' + self.username
+        result = self.__communicate(course_url, Cookie='JSESSIONID=' + self.sessionid)
         courses = result["resultValue"]
         return courses
-
-    def _check_login(self):
-        if not self.logged:
-            raise UserError('未登录')
-
-    # 上下文管理器相关
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.s.close()
-
-    def close(self):
-        self.s.close()
 
 
 class UserError(Exception):
@@ -170,8 +156,7 @@ class UserError(Exception):
 if __name__ == '__main__':
     sample_user = input("请输入用户名：")
     sample_pwd = input("请输入密码：")
-    with mjlu(sample_user, sample_pwd) as test:
-        pass
-        # test.logged = True
-        # infos = test.get_info(show=True)
-        # scores = test.get_score(3, show=True)
+    test = mjlu(sample_user, sample_pwd)
+    infos = test.get_info(show=True)
+    scores = test.get_score(3, show=True)
+    courses = test.get_course()
