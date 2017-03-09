@@ -36,7 +36,6 @@ class mjlu(object):
         result = self.__communicate(token_url)
         sessionid = result['resultValue']['sessionid']
         name = result['resultValue']['name']
-        print(sessionid, name)
         return sessionid, name
 
     def __login(self):
@@ -66,7 +65,7 @@ class mjlu(object):
                'Accept-Encoding': 'gzip, deflate',
                'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
                'Cookie': 'JSESSIONID=' + self.sessionid,
-               'Content-Length': 'str(93+len(self.username))',
+               'Content-Length': str(93+len(self.username)),
                'Accept-Language': 'zh-cn',
                'Accept': '*/*',
                'User-Agent': 'mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0'
@@ -108,13 +107,14 @@ class mjlu(object):
                     _ = [score[key] for score in scores]
                     _.insert(0, header)
                     return _
-                scoreNames = form("scoreName", u"学科")
-                length = [max(map(len, scoreNames))+3, 6, 2, 3, 1, 1]
-                values = [[score["scoreName"],
-                           score["score"]
+                scoreNames = form("scoreName", "学科")
+                length = [max(map(len, scoreNames))+3, 6, 4, 7, 7, 7]
+                values = [[score["scoreName"], score["scoreProperty"],
+                           score["score"], score["scorePoint"],
+                           score["scoreFalg"], score["scoreCredit"]
                            ] for score in scores
                           ]
-                values.insert(0, [u"学科", u"分数"])
+                values.insert(0, ["学科", "类型", "分数", "绩点", "重修", "学分"])
 
                 # 半角转全角函数，有利于对齐
                 def strB2Q(ustring):
@@ -128,9 +128,8 @@ class mjlu(object):
                         rstring += chr(inside_code)
                     return rstring
                 for value in values:
-                    for i in range(2):
+                    for i in range(6):
                         print(strB2Q(value[i].center(length[i], u'　')),
-                              strB2Q(value[i].center(length[i], u'　')),
                               end='')
                     print('')
             else:

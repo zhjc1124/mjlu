@@ -38,11 +38,9 @@ class mjlu(object):
             time.sleep(0.1)
             result.append(buf)
         result = b''.join(result).decode()
-        print(result)
         # 匹配字符串中json格式处理后返回
         pattern = re.compile(r'\r\n\S{2,4}\r\n({.*?})\r\n0', re.DOTALL)
         match = pattern.findall(result)
-        print(match)
         j_result = [json.loads(json_data) for json_data in match]
         return j_result[0]
 
@@ -122,15 +120,35 @@ class mjlu(object):
         # 打印相关
         if show:
             if scores:
-                from tabulate import tabulate
-                table = tabulate([[score["scoreName"], score["scoreProperty"],
-                                   score["score"], score["scorePoint"],
-                                   score["scoreFalg"], score["scoreCredit"]
-                                   ] for score in scores
-                                  ], headers=["学科", "类型", "分数", "绩点", "重修", "学分"]
-                                   , stralign='center'
-                                 )
-                print(table)
+                def form(key, header):
+                    _ = [score[key] for score in scores]
+                    _.insert(0, header)
+                    return _
+                scoreNames = form("scoreName", "学科")
+                length = [max(map(len, scoreNames)) + 3, 6, 4, 7, 7, 7]
+                values = [[score["scoreName"], score["scoreProperty"],
+                           score["score"], score["scorePoint"],
+                           score["scoreFalg"], score["scoreCredit"]
+                           ] for score in scores
+                          ]
+                values.insert(0, ["学科", "类型", "分数", "绩点", "重修", "学分"])
+
+                # 半角转全角函数，有利于对齐
+                def strB2Q(ustring):
+                    rstring = ""
+                    for uchar in ustring:
+                        inside_code = ord(uchar)
+                        if inside_code == 32:  # 半角空格直接转化
+                            inside_code = 12288
+                        elif 32 <= inside_code <= 126:  # 半角字符（除空格）根据关系转化
+                            inside_code += 65248
+                        rstring += chr(inside_code)
+                    return rstring
+                for value in values:
+                    for i in range(6):
+                        print(strB2Q(value[i].center(length[i], u'　')),
+                              end='')
+                    print('')
             else:
                 print('无此学期成绩')
         return scores
@@ -167,6 +185,6 @@ if __name__ == '__main__':
     sample_user = input("请输入用户名：")
     sample_pwd = input("请输入密码：")
     with mjlu(sample_user, sample_pwd) as test:
-        test.login()
         infos = test.get_info(show=True)
         scores = test.get_score(3, show=True)
+        courses = test.get_course()
