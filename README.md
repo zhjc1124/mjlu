@@ -1,5 +1,7 @@
 # mjlu
 
+用来学习爬虫
+
 模拟数字吉大的app查成绩和课表，数字吉大客户端下载:app.jlu.edu.cn
 
 AES256Crypter.py实现get方法中用的AES/ECB/PKCS7Padding加密

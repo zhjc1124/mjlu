@@ -1,7 +1,4 @@
-import re
 import json
-import socket
-import time
 from AES256Crypter import AES256Crypter
 import urllib.request
 import urllib
@@ -11,19 +8,12 @@ class mjlu(object):
     def __init__(self, username, password):
         self.username = username
         self.password = password
-        # headers
-        self.headers = {
-            'Host': '202.98.18.57:18080',
-            'Connection': 'keep-alive',
-            'Accept-Encoding': 'gzip',
-            'User-Agent': 'mjlu 2.41 (PE-TL00; zh_CN)'
-                        }
         self.sessionid, self.name = self.__get_token()
         self.__login()
 
     # request并接受处理数据
-    def __communicate(self, url, postdata = None,**add_cookies):
-        request = urllib.request.Request(url, postdata, headers=self.headers)
+    def __communicate(self, url, postdata=None, **add_cookies):
+        request = urllib.request.Request(url, postdata)
         for key, value in add_cookies.items():
             request.add_header(key, value)
 
@@ -62,12 +52,8 @@ class mjlu(object):
                         + self.username
         postdata = postdata.encode()
         add_headers = {
-               'Accept-Encoding': 'gzip, deflate',
-               'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
                'Cookie': 'JSESSIONID=' + self.sessionid,
                'Content-Length': str(93+len(self.username)),
-               'Accept-Language': 'zh-cn',
-               'Accept': '*/*',
                'User-Agent': 'mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0'
             }
 
