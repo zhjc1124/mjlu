@@ -6,6 +6,6 @@
 
 AES256Crypter.py实现get方法中用的AES/ECB/PKCS7Padding加密
 
-mjlu.py示例见文件，
+三种功能相同，实现的库不一样
 
-old_mjlu.py是用TCP/IP包实现HTTP，较复杂，但可以避免中文headers在urllib的错误，也可以修改urllib的源码latin-1改成utf-8
+mjlu(socket).py是用TCP/IP包实现HTTP，较复杂，但可以避免中文headers在urllib的错误，也可以修改urllib的源码latin-1改成utf-8

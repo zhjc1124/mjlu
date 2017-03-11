@@ -1,7 +1,7 @@
 import json
 from AES256Crypter import AES256Crypter
 import urllib.request
-import urllib
+import urllib.parse
 
 
 class mjlu(object):
@@ -33,11 +33,16 @@ class mjlu(object):
         # AES/ECB/PKCS7Padding加密
         key = bytes.fromhex(self.name)
         crypter = AES256Crypter(key)
-
-        login_url = 'http://202.98.18.57:18080/webservice/m/api/login/v2?apptype='+ \
-                    '&username=' + crypter.encrypt(self.username) + \
-                    '&password=' + crypter.encrypt(self.password) + \
-                    '&user_ip=192.168.0.119&login_type=ios&from_szhxy=1&token='
+        params = {
+            'apptype': '',
+            'username': crypter.encrypt(self.username),
+            'password': crypter.encrypt(self.password),
+            'user_ip': '192.168.0.119',
+            'login_type': 'ios',
+            'from_szhxy': '1',
+            'token': ''
+        }
+        login_url = 'http://202.98.18.57:18080/webservice/m/api/login/v2?%s' % urllib.parse.urlencode(params)
         result = self.__communicate(login_url, Cookie='JSESSIONID=' + self.sessionid)
         feedback = result['resultStatus']['message']
 
@@ -53,7 +58,8 @@ class mjlu(object):
         postdata = postdata.encode()
         add_headers = {
                'Cookie': 'JSESSIONID=' + self.sessionid,
-               'Content-Length': str(93+len(self.username)),
+               'Accept-Encoding': 'gzip, deflate',
+               'Accept': '*/*',
                'User-Agent': 'mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0'
             }
 
