@@ -18,12 +18,9 @@ class mjlu(object):
         self.s.setblocking(0)  # 非阻塞模式
 
         # headers
-        self.headers = 'Host: 202.98.18.57:18080\r\n' \
-                       'Connection: keep-alive\r\n' \
-                       'Accept-Encoding: gzip\r\n' \
-                       'User-Agent: mjlu 2.41 (PE-TL00; zh_CN)'
+        self.headers = 'Host: 202.98.18.57:18080\r\n'
         self.sessionid, self.name = self.__get_token()
-        self.__login()
+        # self.__login()
 
     # 发送data并接受处理数据
     def __communicate(self, data):
@@ -76,14 +73,11 @@ class mjlu(object):
     def get_info(self, show=False):
         data = 'POST /webservice/m/api/proxy HTTP/1.1\r\n' \
                'Host: 202.98.18.57:18080\r\n' \
-               'Connection: keep-alive\r\n' \
                'Accept-Encoding: gzip, deflate\r\n' \
                'Content-Type: application/x-www-form-urlencoded; charset=utf-8\r\n' \
                'Cookie: JSESSIONID=' + self.sessionid + '\r\n' + \
                'Content-Length: ' + str(93+len(self.username)) + '\r\n' \
-               'Accept-Language: zh-cn\r\n' \
-               'Accept: */*\r\nConnection: keep-alive\r\n' \
-               'User-Agent: mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0\r\n\r\n' \
+               'Accept: */*\r\nUser-Agent: mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0\r\n\r\n' \
                'link=http%3A%2F%2Fip.jlu.edu.cn%2Fpay%2Finterface_mobile.php%3Fmenu%3Dget_mail_info%26mail%3D' \
                + self.username
         result = self.__communicate(data)

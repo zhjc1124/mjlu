@@ -53,9 +53,12 @@ class mjlu(object):
                         + self.username
         postdata = postdata.encode()
         headers = {
-               'Cookie': 'JSESSIONID=' + self.sessionid,
-               'User-Agent': 'mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0'
-            }
+                'Cookie': 'JSESSIONID=' + self.sessionid,
+                'Accept-Encoding': 'gzip, deflate',
+                'Accept': '*/*',
+                'User-Agent': 'mjida/2.41 CFNetwork/808.2.16 Darwin/16.3.0',
+                'Content-Type': 'application/x-www-form-urlencoded'
+        }
 
         result = self.session.post(info_url, postdata, headers=headers).content.decode()
         result = json.loads(result)
@@ -127,11 +130,12 @@ class mjlu(object):
     def get_course(self):
         course_url = 'http://202.98.18.57:18080//webservice/m/api/getCourseInfo?' \
                      'email=' + self.username
-        result = self.session.get(course_url).content.decode()
+        result = self.session.get(course_url, headers={'Cookie': 'JSESSIONID=' + self.sessionid}).content.decode()
         result = json.loads(result)
 
         courses = result["resultValue"]
         return courses
+
 
 
 class UserError(Exception):
@@ -143,9 +147,12 @@ class UserError(Exception):
 
 
 if __name__ == '__main__':
+    # test = mjlu('zhangjc2015','')
+    # test.get_info(show=True)
     sample_user = input("请输入用户名：")
     sample_pwd = input("请输入密码：")
     test = mjlu(sample_user, sample_pwd)
     infos = test.get_info(show=True)
     scores = test.get_score(3, show=True)
     courses = test.get_course()
+
