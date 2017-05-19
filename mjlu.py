@@ -63,17 +63,18 @@ class mjlu(object):
         result = self.session.post(info_url, postdata, headers=headers).content.decode()
         result = json.loads(result)
         stu_info = result['resultValue']['content']
-        # 避免错误的json格式
-        pattern = re.compile(r'"[^,:]*?"[^,:]*?"[^,:]*?"')
-        _ = pattern.findall(stu_info)
-        if _:
+        try:
+            stu_info = eval(stu_info)
+        except json.decoder.JSONDecodeError:
+            pattern = re.compile(r'"[^,:]*?"[^,:]*?"[^,:]*?"')
+            _ = pattern.findall(stu_info)
             _ = list(_[0])
             for index, i in enumerate(_[1:-1]):
                 if i == '"':
                     _[index + 1] = '\\"'
             _ = ''.join(_)
             stu_info = pattern.sub(_, stu_info)
-        stu_info = json.loads(stu_info)
+            stu_info = eval(stu_info)
         if show:
             # 简单的排除一些错误
             ip = stu_info.get('ip', [''])
