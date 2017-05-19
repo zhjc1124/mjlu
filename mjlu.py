@@ -1,7 +1,7 @@
 from AES256Crypter import AES256Crypter
 import requests
 import json
-
+import re
 
 class mjlu(object):
     def __init__(self, username, password):
@@ -63,8 +63,24 @@ class mjlu(object):
         result = self.session.post(info_url, postdata, headers=headers).content.decode()
         result = json.loads(result)
         stu_info = result['resultValue']['content']
+        # 错误的json格式
+        pattern = re.compile(r'"[^,:]*?"[^,:]*?"[^,:]*?"')
+        _ = pattern.findall(stu_info)
+        if _:
+            _ = list(_)
+            for index, i in enumerate(_[1:-1]):
+                if i == '"':
+                    _[index + 1] = '\\"'
+            _ = ''.join(_)
+            stu_info = pattern.sub(_, stu_info)
         stu_info = json.loads(stu_info)
         if show:
+            # 简单的排除一些错误
+            ip = stu_info.get('ip', [''])
+            if not ip:
+                ip = ''
+            if type(ip) == list:
+                ip = ip[0]
             print('邮箱账号:', stu_info['mail'])
             print('姓名:', stu_info['name'])
             print('身份证号:', stu_info['zhengjianhaoma'])
