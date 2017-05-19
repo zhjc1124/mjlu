@@ -63,11 +63,11 @@ class mjlu(object):
         result = self.session.post(info_url, postdata, headers=headers).content.decode()
         result = json.loads(result)
         stu_info = result['resultValue']['content']
-        # 错误的json格式
+        # 避免错误的json格式
         pattern = re.compile(r'"[^,:]*?"[^,:]*?"[^,:]*?"')
         _ = pattern.findall(stu_info)
         if _:
-            _ = list(_)
+            _ = list(_[0])
             for index, i in enumerate(_[1:-1]):
                 if i == '"':
                     _[index + 1] = '\\"'
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     sample_user = input("请输入用户名：")
     sample_pwd = input("请输入密码：")
     test = mjlu(sample_user, sample_pwd)
-    infos = test.get_info(show=True)
+    infos = test.get_info(show=False)
     scores = test.get_score(3, show=True)
     courses = test.get_course()
 
